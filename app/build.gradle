@@ -1,0 +1,56 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 25
+    buildToolsVersion "28.0.3"
+    defaultConfig {
+        applicationId "com.obruta.astrosee"
+        minSdkVersion 24
+        targetSdkVersion 25
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    lintOptions {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+    compileOptions {
+        incremental = false
+
+    }
+    //ndkVersion '16.1.4479499'
+    //ndkVersion "16.1.4479499"
+}
+
+dependencies {
+    implementation project(':guest_science_library')
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.android.support:appcompat-v7:25.+' // Original
+    //compile 'com.android.support:appcompat-v7:25.4.0' // Kirk updated
+    implementation 'com.android.support.constraint:constraint-layout:1.0.2'
+    implementation('org.ros.rosjava_core:rosjava:0.3.6') {
+        exclude group: 'xml-apis'
+        exclude group: 'junit'
+    }
+    implementation('org.ros.android_core:android_10:0.3.3') {
+        exclude group: 'xml-apis'
+        exclude group: 'junit'
+    }
+    implementation 'org.ros.rosjava_messages:std_msgs:0.5.11' // Ruben added
+    implementation 'org.ros.rosjava_bootstrap:message_generation:0.3.3' // Ruben added
+    testImplementation 'junit:junit:4.13.2'
+
+
+    // Kirk adding tensorflow libraries
+    implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.4'
+
+    // Extra import to get ROS parameter message types
+    implementation 'org.ros.rosjava_messages:geometry_msgs:1.12.7'
+
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<apkInfo>
+    <shortName>astrosee</shortName> <!-- Optional -->
+    <primary>false</primary> <!-- Required -->
+    <commands>
+        <command
+            name="start_vision"
+            syntax="{&quot;name&quot;: &quot;start_vision&quot;}" />
+        <command
+            name="stop_vision"
+            syntax="{&quot;name&quot;: &quot;stop_vision&quot;}" />
+    </commands>
+</apkInfo>
