@@ -48,7 +48,9 @@ dependencies {
 
 
     // Kirk adding tensorflow libraries
-    implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.4'
+    // 0.4.4 does not work on Android 7.1
+    //implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.4'
+    implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.0'
 
     // Extra import to get ROS parameter message types
     implementation 'org.ros.rosjava_messages:geometry_msgs:1.12.7'
