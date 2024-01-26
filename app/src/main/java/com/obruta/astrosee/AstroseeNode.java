@@ -18,6 +18,7 @@ import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
 import org.ros.node.Node;
+import org.ros.node.topic.Publisher;
 import org.ros.node.topic.Subscriber;
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
@@ -40,6 +41,7 @@ import geometry_msgs.QuaternionStamped;
 import geometry_msgs.Vector3Stamped;
 import sensor_msgs.CompressedImage;
 import std_msgs.Float64;
+
 
 
 public class AstroseeNode extends AbstractNodeMain {
@@ -86,9 +88,19 @@ public class AstroseeNode extends AbstractNodeMain {
     private boolean saveImages;
     private boolean processImages;
 
+    // CV Topic
+    Publisher<std_msgs.String> cvResultsPub;
+    private String CV_Results;
+
+    MessageFactory factory;
+
+
 
     public AstroseeNode(Context applicationContext, String dataPath) {
         // /sdcard/data/com.obruta.astrosee
+
+        CV_Results = ""; // define to be empty
+
         this.dataPath = dataPath;
         this.dockCamDataPath = dataPath + "/delayed/dock_images";
         onStartCompleteFlag = false;
@@ -99,7 +111,7 @@ public class AstroseeNode extends AbstractNodeMain {
         }
 
         this.context = applicationContext;
-        this.saveImages = true;
+        this.saveImages = false;
         this.processImages = true;
 
 
@@ -175,7 +187,7 @@ public class AstroseeNode extends AbstractNodeMain {
                 .put("Servicer Control Torque", "[" + String.format("%.4f", adaptiveControlTorque.getVector().getX()) + ", " + String.format("%.4f", adaptiveControlTorque.getVector().getY()) + ", " + String.format("%.4f", adaptiveControlTorque.getVector().getZ()) + "]")
                 .put("Servicer Pos Wrt Client", "[" + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getZ()) + "]")
                 .put("Servicer's Recv'd Abs Client Position", "[" + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getZ()) + "]")
-                .put("Object Detection", "[ temp, put detection results here!] ")
+                .put("Object Detection Results: ", CV_Results)
                 ;
 
 
@@ -195,7 +207,7 @@ public class AstroseeNode extends AbstractNodeMain {
 
     @Override
     public void onStart(ConnectedNode connectedNode) {
-        MessageFactory factory = connectedNode.getTopicMessageFactory();
+        factory = connectedNode.getTopicMessageFactory();
         robotEKF = factory.newFromType(EkfState._TYPE);
         pmcCommand = factory.newFromType(PmcCommand._TYPE);
         adaptiveGNCctlAcceleration = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
@@ -220,7 +232,8 @@ public class AstroseeNode extends AbstractNodeMain {
         clientGuidancePosition = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
         clientGuidanceError = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
 
-        //flightMode = factory.newFromType(FlightMode._TYPE);
+        // CV Topic
+        cvResultsPub = connectedNode.newPublisher("/cv_results", std_msgs.String._TYPE);
 
 
 
@@ -483,8 +496,16 @@ public class AstroseeNode extends AbstractNodeMain {
         for (Detection detection : detections) {
             Category category = detection.getCategories().get(0);
             RectF box = detection.getBoundingBox();
-            Log.i(TAG, String.format("Detected: %s, Score: %s, CentreX: %s, CentreY: %s, Height: %s, Width: %s",
-                    category.getLabel(), category.getScore(), box.centerX(), box.centerY(), box.height(), box.width()));
+            CV_Results = String.format("Detected: %s, Score: %s, CentreX: %s, CentreY: %s, Height: %s, Width: %s",
+                    category.getLabel(), category.getScore(), box.centerX(), box.centerY(), box.height(), box.width());
+            Log.i(TAG, CV_Results);
+
+            // Save data to a topic
+            std_msgs.String cv_results_string = cvResultsPub.newMessage();
+            cv_results_string.setData(CV_Results);
+            cvResultsPub.publish(cv_results_string); // publish it
+
+
         }
     }
 
@@ -499,6 +520,8 @@ public class AstroseeNode extends AbstractNodeMain {
             RectF box = detection.getBoundingBox();
             Log.i(TAG, String.format("Detected: %s, Score: %s, CentreX: %s, CentreY: %s, Height: %s, Width: %s",
                     category.getLabel(), category.getScore(), box.centerX(), box.centerY(), box.height(), box.width()));
+
+
             canvas.drawRect(box.left, box.top, box.right, box.bottom, paint);
         }
 
