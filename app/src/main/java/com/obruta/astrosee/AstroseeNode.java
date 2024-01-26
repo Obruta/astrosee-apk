@@ -475,9 +475,9 @@ public class AstroseeNode extends AbstractNodeMain {
                 // Processing
                 List<Detection> results = objectDetector.detect(tensorImage);
                 if(saveImages) {
-                    processResults(results, bitmap);
+                    processResults(results, image.getHeader().getSeq(), bitmap);
                 } else {
-                    processResults(results);
+                    processResults(results, image.getHeader().getSeq());
                 }
             }
         });
@@ -492,12 +492,12 @@ public class AstroseeNode extends AbstractNodeMain {
         }
     }
 
-    public void processResults(List<Detection> detections) {
+    public void processResults(List<Detection> detections, int image_seq) {
         for (Detection detection : detections) {
             Category category = detection.getCategories().get(0);
             RectF box = detection.getBoundingBox();
-            CV_Results = String.format("Detected: %s, Score: %s, CentreX: %s, CentreY: %s, Height: %s, Width: %s",
-                    category.getLabel(), category.getScore(), box.centerX(), box.centerY(), box.height(), box.width());
+            CV_Results = String.format("Detected: %s, Image Sequence: %s, Score: %s, CentreX: %s, CentreY: %s, Height: %s, Width: %s",
+                    category.getLabel(), image_seq, category.getScore(), box.centerX(), box.centerY(), box.height(), box.width());
             Log.i(TAG, CV_Results);
 
             // Save data to a topic
@@ -509,7 +509,7 @@ public class AstroseeNode extends AbstractNodeMain {
         }
     }
 
-    public void processResults(List<Detection> detections, Bitmap bitmap) {
+    public void processResults(List<Detection> detections, int image_seq, Bitmap bitmap) {
         // Making bitmap mutable
         bitmap = bitmap.copy(Bitmap.Config.ARGB_8888,true);
         // Loading canvas
