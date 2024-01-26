@@ -16,3 +16,6 @@ out/
 .gradle/
 .gradletasknamecache
 local.properties
+
+# Proprietary models
+*.tflite
