@@ -1,7 +1,13 @@
 package com.obruta.astrosee;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.util.Log;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.json.JSONException;
@@ -11,11 +17,22 @@ import org.ros.message.MessageListener;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
+import org.ros.node.Node;
 import org.ros.node.topic.Subscriber;
+import org.tensorflow.lite.support.image.ImageProcessor;
+import org.tensorflow.lite.support.image.TensorImage;
+import org.tensorflow.lite.support.label.Category;
+import org.tensorflow.lite.task.core.BaseOptions;
+import org.tensorflow.lite.task.vision.detector.Detection;
+import org.tensorflow.lite.task.vision.detector.ObjectDetector;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 import ff_hw_msgs.PmcCommand;
 import ff_msgs.EkfState;
@@ -59,14 +76,18 @@ public class AstroseeNode extends AbstractNodeMain {
     private Vector3Stamped clientGuidancePosition;
     private Vector3Stamped clientGuidanceError;
 
-    //private FlightMode flightMode;
 
 
+    private final Context context;
+    private final Paint paint;
+
+    private ObjectDetector objectDetector;
+    private ImageProcessor imageProcessor;
+    private boolean saveImages;
+    private boolean processImages;
 
 
-
-
-    public AstroseeNode(String dataPath) {
+    public AstroseeNode(Context applicationContext, String dataPath) {
         // /sdcard/data/com.obruta.astrosee
         this.dataPath = dataPath;
         this.dockCamDataPath = dataPath + "/delayed/dock_images";
@@ -76,6 +97,25 @@ public class AstroseeNode extends AbstractNodeMain {
         if (!directory.exists()) {
             directory.mkdirs();
         }
+
+        this.context = applicationContext;
+        this.saveImages = true;
+        this.processImages = true;
+
+
+        paint = new Paint();
+        paint.setColor(Color.RED);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(3);
+
+    }
+
+    public void enableImageSaving(boolean enable) {
+        saveImages = enable;
+    }
+
+    public void enableImageProcessing(boolean enable) {
+        processImages = enable;
     }
 
     public JSONObject getData() {
@@ -135,6 +175,7 @@ public class AstroseeNode extends AbstractNodeMain {
                 .put("Servicer Control Torque", "[" + String.format("%.4f", adaptiveControlTorque.getVector().getX()) + ", " + String.format("%.4f", adaptiveControlTorque.getVector().getY()) + ", " + String.format("%.4f", adaptiveControlTorque.getVector().getZ()) + "]")
                 .put("Servicer Pos Wrt Client", "[" + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getZ()) + "]")
                 .put("Servicer's Recv'd Abs Client Position", "[" + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getZ()) + "]")
+                .put("Object Detection", "[ temp, put detection results here!] ")
                 ;
 
 
@@ -149,7 +190,7 @@ public class AstroseeNode extends AbstractNodeMain {
 
     @Override
     public GraphName getDefaultNodeName() {
-        return GraphName.of("astrosee_hlp_node");
+        return GraphName.of("astrosee_hlp_node_w_image_processing");
     }
 
     @Override
@@ -207,31 +248,10 @@ public class AstroseeNode extends AbstractNodeMain {
                 pmcCommand = pmcCommandIncoming;
             }
         }));
-/*
-        // Sample Vector3Stamped topic
-        Subscriber<Vector3Stamped> posErrorSub = connectedNode.newSubscriber("test/topic", Vector3Stamped._TYPE);
-        posErrorSub.addMessageListener((new MessageListener<Vector3Stamped>() {
-            @Override
-            public void onNewMessage(Vector3Stamped vector3Stamped) {
 
-            }
-        }));
-*/
-
-/*
-        // Sample QuaternionStamped topic
-        Subscriber<QuaternionStamped> quaternionErrorSub = connectedNode.newSubscriber(("test/quaternion/topic", QuaternionStamped._TYPE));
-        quaternionErrorSub.addMessageListener((new MessageListener<QuaternionStamped>() {
-            @Override
-            public void onNewMessage(QuaternionStamped quaternionStamped) {
-
-            }
-        }));
- */
 
         // CUSTOM TOPICS RECEIVED FOR GDS
         // Servicer Position Control Topics
-
         Subscriber<Vector3Stamped> adaptiveGNCctlAccelerationSub = connectedNode.newSubscriber("/adaptive_gnc/ctl/acceleration", Vector3Stamped._TYPE);
         adaptiveGNCctlAccelerationSub.addMessageListener((new MessageListener<Vector3Stamped>() {
             @Override
@@ -332,8 +352,6 @@ public class AstroseeNode extends AbstractNodeMain {
                 adaptiveGNCnavClientStates = vector3Stamped;
             }
         }));
-
-
         // Done Servicer Attitude Control Topics
 
 
@@ -363,9 +381,6 @@ public class AstroseeNode extends AbstractNodeMain {
         }));
 
 
-
-
-
         // The time signal
         Subscriber<Float64> simulinkTimeSub = connectedNode.newSubscriber("/simulinkclock", Float64._TYPE);
         simulinkTimeSub.addMessageListener((new MessageListener<Float64>() {
@@ -374,7 +389,6 @@ public class AstroseeNode extends AbstractNodeMain {
                 simulinkTime = float64data;
             }
         }));
-
 
         // More Client States
         Subscriber<Vector3Stamped> clientNavigationPositionEstimateSub = connectedNode.newSubscriber("/client/gnc/nav/position_est", Vector3Stamped._TYPE);
@@ -408,8 +422,22 @@ public class AstroseeNode extends AbstractNodeMain {
                 clientGuidanceError = vector3Stamped;
             }
         }));
+        // Done logging signals!
 
 
+        // Build the Object detector neural network!
+        BaseOptions baseOptionsBuilder = BaseOptions.builder().setNumThreads(4).build();
+        ObjectDetector.ObjectDetectorOptions optionsBuilder = ObjectDetector.ObjectDetectorOptions.builder()
+                .setScoreThreshold(0.5f)
+                .setMaxResults(1).setBaseOptions(baseOptionsBuilder).build();
+
+        try {
+            objectDetector = ObjectDetector.createFromFileAndOptions(context, "dockCamObjectDetector.tflite", optionsBuilder);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        imageProcessor = new ImageProcessor.Builder().build();
 
 
 
@@ -419,38 +447,73 @@ public class AstroseeNode extends AbstractNodeMain {
             @Override
             public void onNewMessage(CompressedImage image) {
                 // Images are mono8 compressed to JPEG
-                // Log.i(TAG, "NEW IMAGE!");
-
-
+                if (!processImages) {
+                    return;
+                }
                 // Image to bitmap
                 ChannelBuffer buffer = image.getData();
                 byte[] data = buffer.array();
                 Bitmap bitmap = BitmapFactory.decodeByteArray(data, buffer.arrayOffset(),
                         buffer.readableBytes());
 
+                // Bitmap to TensorFlow
+                TensorImage tensorImage = imageProcessor.process(TensorImage.fromBitmap(bitmap));
 
-
-                // Kirk do your image processing here!
-
-
-
-                // Save to file
-                // This is only an example, you probably don't want to save that many images
-                // FYI, this is coming at 5Hz by default, it can be adjusted.
-                // Also you probably don't want to take too long running this callback
-                // You might want to use async tasks or similar
-                File imageFile = new File(dockCamDataPath, image.getHeader().getSeq() + ".jpg");
-                try {
-                    FileOutputStream fos = new FileOutputStream(imageFile);
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
-                    fos.flush();
-                    fos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                // Processing
+                List<Detection> results = objectDetector.detect(tensorImage);
+                if(saveImages) {
+                    processResults(results, bitmap);
+                } else {
+                    processResults(results);
                 }
             }
         });
 
         onStartCompleteFlag = true;
+    }
+
+    @Override
+    public void onShutdown(Node node) {
+        if (!objectDetector.isClosed()) {
+            objectDetector.close();
+        }
+    }
+
+    public void processResults(List<Detection> detections) {
+        for (Detection detection : detections) {
+            Category category = detection.getCategories().get(0);
+            RectF box = detection.getBoundingBox();
+            Log.i(TAG, String.format("Detected: %s, Score: %s, CentreX: %s, CentreY: %s, Height: %s, Width: %s",
+                    category.getLabel(), category.getScore(), box.centerX(), box.centerY(), box.height(), box.width()));
+        }
+    }
+
+    public void processResults(List<Detection> detections, Bitmap bitmap) {
+        // Making bitmap mutable
+        bitmap = bitmap.copy(Bitmap.Config.ARGB_8888,true);
+        // Loading canvas
+        Canvas canvas = new Canvas(bitmap);
+
+        for (Detection detection : detections) {
+            Category category = detection.getCategories().get(0);
+            RectF box = detection.getBoundingBox();
+            Log.i(TAG, String.format("Detected: %s, Score: %s, CentreX: %s, CentreY: %s, Height: %s, Width: %s",
+                    category.getLabel(), category.getScore(), box.centerX(), box.centerY(), box.height(), box.width()));
+            canvas.drawRect(box.left, box.top, box.right, box.bottom, paint);
+        }
+
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmssSSS",
+                Locale.getDefault()).format(new Date());
+        String imageFileName = "IMG_" + timestamp + ".jpg";
+        File imageFile = new File(dockCamDataPath, imageFileName);
+        try {
+            FileOutputStream fos = new FileOutputStream(imageFile);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+            fos.flush();
+            fos.close();
+            Log.i(TAG, "Image saved to: " + imageFile.getAbsolutePath());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
