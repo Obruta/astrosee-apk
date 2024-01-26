@@ -111,7 +111,7 @@ public class MainActivity extends RosActivity {
 
     @Override
     protected void init(NodeMainExecutor nodeMainExecutor) {
-        node = new AstroseeNode(gsService.getGuestScienceDataBasePath());
+        node = new AstroseeNode(getApplicationContext(), gsService.getGuestScienceDataBasePath());
         NodeConfiguration nodeConfiguration = NodeConfiguration.newPublic("hlp");
         nodeConfiguration.setMasterUri(getMasterUri());
         nodeMainExecutor.execute(node, nodeConfiguration);
