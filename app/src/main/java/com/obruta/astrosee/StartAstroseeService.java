@@ -3,6 +3,7 @@ package com.obruta.astrosee;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
+import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -27,13 +28,11 @@ public class StartAstroseeService extends StartGuestScienceService {
         }
     }
 
-    private AstroseeNode astroseeNode;
+    private AstroseeServiceListener listener;
 
-    // Method to set the AstroseeNode instance
-    public void setAstroseeNode(AstroseeNode node) {
-        astroseeNode = node;
+    public void setListener(AstroseeServiceListener listener) {
+        this.listener = listener;
     }
-
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -55,9 +54,6 @@ public class StartAstroseeService extends StartGuestScienceService {
 
         // Inform the GS Manager and the GDS that the app has been started.
         sendStarted("info");
-
-        // Start with vision disabled
-        astroseeNode.enableImageProcessing(false); // Disable the vision
     }
 
     /**
@@ -96,22 +92,26 @@ public class StartAstroseeService extends StartGuestScienceService {
             // Get the name of the command we received. See commands.xml files in res folder.
             String sCommand = jCommand.getString("name");
 
+            Log.i(TAG, "Received command: " + sCommand);
+
             // JSON object that will contain the data we will send back to the GSM and GDS
             JSONObject jResult = new JSONObject();
 
             switch (sCommand) {
                 // You may handle your commands here
                 case "start_vision":
-                    astroseeNode.enableImageProcessing(true); // Enable the vision
+                    listener.onVisionEnable(true);
                     jResult.put("Summary", new JSONObject()
                             .put("Status", "OK")
                             .put("Message", "Vision Started"));
+                    Log.i(TAG, "Executed start_vision");
                     break;
                 case "stop_vision":
-                    astroseeNode.enableImageProcessing(false); // Disable the vision
+                    listener.onVisionEnable(false);
                     jResult.put("Summary", new JSONObject()
                             .put("Status", "OK")
                             .put("Message", "Vision Stopped"));
+                    Log.i(TAG, "Executed stop_vision");
                     break;
                 default:
                     // Inform GS Manager and GDS, then stop execution.

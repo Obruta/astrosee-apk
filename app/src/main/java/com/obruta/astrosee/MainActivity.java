@@ -25,7 +25,7 @@ import java.net.URI;
 
 import gov.nasa.arc.astrobee.android.gs.MessageType;
 
-public class MainActivity extends RosActivity {
+public class MainActivity extends RosActivity implements AstroseeServiceListener {
     // IP Address ROS Master
     private static final URI ROS_MASTER_URI = URI.create("http://llp:11311");
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -36,17 +36,12 @@ public class MainActivity extends RosActivity {
     private Handler handler;
     private AstroseeNode node;
 
-    // Method to get the AstroseeNode instance
-    public AstroseeNode getAstroseeNode() {
-        return node;
-    }
-
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             StartAstroseeService.LocalBinder binder = (StartAstroseeService.LocalBinder) service;
             gsService = binder.getService();
-            gsService.setAstroseeNode(node); // Set the AstroseeNode instance in the service
+            gsService.setListener(MainActivity.this);
             isBound = true;
         }
 
@@ -135,5 +130,10 @@ public class MainActivity extends RosActivity {
 
         // Start the handler
         handler.sendEmptyMessage(0);
+    }
+
+    @Override
+    public void onVisionEnable(boolean enable) {
+        node.enableImageProcessing(enable);
     }
 }
