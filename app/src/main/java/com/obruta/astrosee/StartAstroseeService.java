@@ -27,6 +27,14 @@ public class StartAstroseeService extends StartGuestScienceService {
         }
     }
 
+    private AstroseeNode astroseeNode;
+
+    // Method to set the AstroseeNode instance
+    public void setAstroseeNode(AstroseeNode node) {
+        astroseeNode = node;
+    }
+
+
     @Override
     public IBinder onBind(Intent intent) {
         return binder;
@@ -47,6 +55,9 @@ public class StartAstroseeService extends StartGuestScienceService {
 
         // Inform the GS Manager and the GDS that the app has been started.
         sendStarted("info");
+
+        // Start with vision disabled
+        astroseeNode.enableImageProcessing(false); // Disable the vision
     }
 
     /**
@@ -91,11 +102,13 @@ public class StartAstroseeService extends StartGuestScienceService {
             switch (sCommand) {
                 // You may handle your commands here
                 case "start_vision":
+                    astroseeNode.enableImageProcessing(true); // Enable the vision
                     jResult.put("Summary", new JSONObject()
                             .put("Status", "OK")
                             .put("Message", "Vision Started"));
                     break;
                 case "stop_vision":
+                    astroseeNode.enableImageProcessing(false); // Disable the vision
                     jResult.put("Summary", new JSONObject()
                             .put("Status", "OK")
                             .put("Message", "Vision Stopped"));
