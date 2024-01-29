@@ -112,7 +112,7 @@ public class AstroseeNode extends AbstractNodeMain {
 
         this.context = applicationContext;
         this.saveImages = false;
-        this.processImages = true;
+        this.processImages = false;
 
 
         paint = new Paint();
@@ -463,6 +463,9 @@ public class AstroseeNode extends AbstractNodeMain {
                 if (!processImages) {
                     return;
                 }
+                //String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmssSSS",
+                //        Locale.getDefault()).format(new Date());
+                //Log.i(TAG, "Processing image at " + timestamp);
                 // Image to bitmap
                 ChannelBuffer buffer = image.getData();
                 byte[] data = buffer.array();
