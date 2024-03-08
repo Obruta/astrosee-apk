@@ -168,7 +168,7 @@ public class AstroseeNode extends AbstractNodeMain {
 
             data.put("robot_name", robotName)
                 .put("Time: ", String.format("%.2f", simulinkTime.getData()))
-                .put("Phase: ", String.format("%i", simulinkPhase.getData()))
+                .put("Phase: ", String.format("%d", simulinkPhase.getData()))
                 //.put("Flight Mode: ", String.valueOf(flightMode.getSpeed()))
                 .put("EKF Position: ", "[" + String.format("%.4f", robotEKF.getPose().getPosition().getX()) + ", " + String.format("%.4f", robotEKF.getPose().getPosition().getY()) + ", " + String.format("%.4f", robotEKF.getPose().getPosition().getZ()) + "]") // Kirk look up how to concatenate in Java and make this as clean as possible
                 .put("EKF Attitude: ", "[" + String.format("%.4f", robotEKF.getPose().getOrientation().getX()) + ", " + String.format("%.4f", robotEKF.getPose().getOrientation().getY()) + ", " + String.format("%.4f", robotEKF.getPose().getOrientation().getZ()) + ", " + String.format("%.4f", robotEKF.getPose().getOrientation().getW()) + "]") // Kirk look up how to concatenate in Java and make this as clean as possible
@@ -235,6 +235,7 @@ public class AstroseeNode extends AbstractNodeMain {
         adaptiveGNCnavClientStates = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
         simulinkTime = factory.newFromType(Float64._TYPE);
         simulinkPhase = factory.newFromType(Int32._TYPE);
+
 
         clientNavigationPoseEstimate = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
         clientControlAcceleration = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
@@ -415,7 +416,7 @@ public class AstroseeNode extends AbstractNodeMain {
         }));
 
         // The simulink phase
-        Subscriber<Int32> simulinkPhaseSub = connectedNode.newSubscriber("/simulinkphase", Float64._TYPE);
+        Subscriber<Int32> simulinkPhaseSub = connectedNode.newSubscriber("/simulinkphase", Int32._TYPE);
         simulinkPhaseSub.addMessageListener((new MessageListener<Int32>() {
             @Override
             public void onNewMessage(Int32 int32data) {
@@ -533,21 +534,26 @@ public class AstroseeNode extends AbstractNodeMain {
             // Pose detection results
             // Relative position
             Vector3Stamped cv_rel_position = cvRelPositionPub.newMessage();
-            cv_rel_position.setVector(0.4, 5.5, 9.9);
+            Vector3 vector_1 = factory.newFromType(Vector3._TYPE);
+            vector_1.setX(0.4);
+            vector_1.setY(0.5);
+            vector_1.setZ(0.6);
+            cv_rel_position.setVector(vector_1);
+            //TODO: make header, same for all 3 topics cv_rel_position.setHeader();
             cvRelPositionPub.publish(cv_rel_position); // publish it
             Log.i("Astrosee relative position", "[" + String.format("%.4f", cv_rel_position.getVector().getX()) + ", " + String.format("%.4f", cv_rel_position.getVector().getY()) + ", " + String.format("%.4f", cv_rel_position.getVector().getZ()) + "]");
 
             // Relative orientation
-            QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
-            cv_rel_quaternion.setQuaternion(0.4, 5.5, 9.9, 4.4);
-            cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
-            Log.i("Astrosee relative position", "[" + String.format("%.4f", cv_rel_quaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getW()) + "]");
+            // QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
+            // cv_rel_quaternion.setQuaternion(0.4, 5.5, 9.9, 4.4);
+            // cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
+            // Log.i("Astrosee relative position", "[" + String.format("%.4f", cv_rel_quaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getW()) + "]");
 
             // bounding box centre
-            Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
-            bb_centre.setVector(box.centerX(), box.centerY(), 0);
-            cvBBcentrePub.publish(bb_centre); // publish it
-            Log.i("Astrosee relative position", "[" + String.format("%.1f", bb_centre.getVector().getX()) + ", " + String.format("%.1f", bb_centre.getVector().getY()) + ", " + String.format("%.1f", bb_centre.getVector().getZ()) + "]");
+            // Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
+            // bb_centre.setVector(box.centerX(), box.centerY(), 0);
+            //  cvBBcentrePub.publish(bb_centre); // publish it
+            //  Log.i("Astrosee relative position", "[" + String.format("%.1f", bb_centre.getVector().getX()) + ", " + String.format("%.1f", bb_centre.getVector().getY()) + ", " + String.format("%.1f", bb_centre.getVector().getZ()) + "]");
 
 
         }
