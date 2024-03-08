@@ -535,16 +535,19 @@ public class AstroseeNode extends AbstractNodeMain {
             Vector3Stamped cv_rel_position = cvRelPositionPub.newMessage();
             cv_rel_position.setVector(0.4, 5.5, 9.9);
             cvRelPositionPub.publish(cv_rel_position); // publish it
+            Log.i("Astrosee relative position", "[" + String.format("%.4f", cv_rel_position.getVector().getX()) + ", " + String.format("%.4f", cv_rel_position.getVector().getY()) + ", " + String.format("%.4f", cv_rel_position.getVector().getZ()) + "]");
 
             // Relative orientation
             QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
             cv_rel_quaternion.setQuaternion(0.4, 5.5, 9.9, 4.4);
             cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
+            Log.i("Astrosee relative position", "[" + String.format("%.4f", cv_rel_quaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getW()) + "]");
 
             // bounding box centre
             Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
             bb_centre.setVector(box.centerX(), box.centerY(), 0);
             cvBBcentrePub.publish(bb_centre); // publish it
+            Log.i("Astrosee relative position", "[" + String.format("%.1f", bb_centre.getVector().getX()) + ", " + String.format("%.1f", bb_centre.getVector().getY()) + ", " + String.format("%.1f", bb_centre.getVector().getZ()) + "]");
 
 
         }
