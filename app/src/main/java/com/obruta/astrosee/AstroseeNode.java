@@ -38,10 +38,11 @@ import java.util.Locale;
 import ff_hw_msgs.PmcCommand;
 import ff_msgs.EkfState;
 import geometry_msgs.QuaternionStamped;
+import geometry_msgs.Vector3;
 import geometry_msgs.Vector3Stamped;
 import sensor_msgs.CompressedImage;
 import std_msgs.Float64;
-
+import std_msgs.Int32;
 
 
 public class AstroseeNode extends AbstractNodeMain {
@@ -72,6 +73,7 @@ public class AstroseeNode extends AbstractNodeMain {
     private Vector3Stamped adaptiveGNCnavClientStates;
     private Boolean onStartCompleteFlag;
     private Float64 simulinkTime;
+    private Int32 simulinkPhase;
 
     private Vector3Stamped clientNavigationPoseEstimate;
     private Vector3Stamped clientControlAcceleration;
@@ -88,9 +90,14 @@ public class AstroseeNode extends AbstractNodeMain {
     private boolean saveImages;
     private boolean processImages;
 
-    // CV Topic
+    // CV Topics
     Publisher<std_msgs.String> cvResultsPub;
     private String CV_Results;
+
+    Publisher<Vector3Stamped> cvRelPositionPub;
+    Publisher<QuaternionStamped> cvRelQuaternionPub;
+    Publisher<Vector3Stamped> cvBBcentrePub;
+    //private Vector3Stamped cvRelPosition;
 
     MessageFactory factory;
 
@@ -161,6 +168,7 @@ public class AstroseeNode extends AbstractNodeMain {
 
             data.put("robot_name", robotName)
                 .put("Time: ", String.format("%.2f", simulinkTime.getData()))
+                .put("Phase: ", String.format("%i", simulinkPhase.getData()))
                 //.put("Flight Mode: ", String.valueOf(flightMode.getSpeed()))
                 .put("EKF Position: ", "[" + String.format("%.4f", robotEKF.getPose().getPosition().getX()) + ", " + String.format("%.4f", robotEKF.getPose().getPosition().getY()) + ", " + String.format("%.4f", robotEKF.getPose().getPosition().getZ()) + "]") // Kirk look up how to concatenate in Java and make this as clean as possible
                 .put("EKF Attitude: ", "[" + String.format("%.4f", robotEKF.getPose().getOrientation().getX()) + ", " + String.format("%.4f", robotEKF.getPose().getOrientation().getY()) + ", " + String.format("%.4f", robotEKF.getPose().getOrientation().getZ()) + ", " + String.format("%.4f", robotEKF.getPose().getOrientation().getW()) + "]") // Kirk look up how to concatenate in Java and make this as clean as possible
@@ -226,15 +234,18 @@ public class AstroseeNode extends AbstractNodeMain {
         adaptiveGNCnavRelativePosition = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
         adaptiveGNCnavClientStates = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
         simulinkTime = factory.newFromType(Float64._TYPE);
+        simulinkPhase = factory.newFromType(Int32._TYPE);
 
         clientNavigationPoseEstimate = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
         clientControlAcceleration = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
         clientGuidancePosition = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
         clientGuidanceError = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
 
-        // CV Topic
+        // CV Topics
         cvResultsPub = connectedNode.newPublisher("/cv_results", std_msgs.String._TYPE);
-
+        cvRelPositionPub = connectedNode.newPublisher("/cv/rel_position", Vector3Stamped._TYPE);
+        cvRelQuaternionPub = connectedNode.newPublisher("/cv/rel_quaternion", QuaternionStamped._TYPE);
+        cvBBcentrePub = connectedNode.newPublisher("/cv/bb_centre", Vector3Stamped._TYPE);
 
 
         Subscriber<std_msgs.String> robotNameSub = connectedNode.newSubscriber("/robot_name",
@@ -403,6 +414,15 @@ public class AstroseeNode extends AbstractNodeMain {
             }
         }));
 
+        // The simulink phase
+        Subscriber<Int32> simulinkPhaseSub = connectedNode.newSubscriber("/simulinkphase", Float64._TYPE);
+        simulinkPhaseSub.addMessageListener((new MessageListener<Int32>() {
+            @Override
+            public void onNewMessage(Int32 int32data) {
+                simulinkPhase = int32data;
+            }
+        }));
+
         // More Client States
         Subscriber<Vector3Stamped> clientNavigationPositionEstimateSub = connectedNode.newSubscriber("/client/gnc/nav/position_est", Vector3Stamped._TYPE);
         clientNavigationPositionEstimateSub.addMessageListener((new MessageListener<Vector3Stamped>() {
@@ -497,16 +517,34 @@ public class AstroseeNode extends AbstractNodeMain {
 
     public void processResults(List<Detection> detections, int image_seq) {
         for (Detection detection : detections) {
+            // Object detection results
             Category category = detection.getCategories().get(0);
             RectF box = detection.getBoundingBox();
             CV_Results = String.format("Detected: %s, Image Sequence: %s, Score: %s, CentreX: %s, CentreY: %s, Height: %s, Width: %s",
                     category.getLabel(), image_seq, category.getScore(), box.centerX(), box.centerY(), box.height(), box.width());
             Log.i(TAG, CV_Results);
 
-            // Save data to a topic
+            // Save data to the topic
             std_msgs.String cv_results_string = cvResultsPub.newMessage();
             cv_results_string.setData(CV_Results);
             cvResultsPub.publish(cv_results_string); // publish it
+
+
+            // Pose detection results
+            // Relative position
+            Vector3Stamped cv_rel_position = cvRelPositionPub.newMessage();
+            cv_rel_position.setVector(0.4, 5.5, 9.9);
+            cvRelPositionPub.publish(cv_rel_position); // publish it
+
+            // Relative orientation
+            QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
+            cv_rel_quaternion.setQuaternion(0.4, 5.5, 9.9, 4.4);
+            cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
+
+            // bounding box centre
+            Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
+            bb_centre.setVector(box.centerX(), box.centerY(), 0);
+            cvBBcentrePub.publish(bb_centre); // publish it
 
 
         }
