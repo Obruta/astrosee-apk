@@ -14,6 +14,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.ros.message.MessageFactory;
 import org.ros.message.MessageListener;
+import org.ros.message.Time;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -37,11 +38,13 @@ import java.util.Locale;
 
 import ff_hw_msgs.PmcCommand;
 import ff_msgs.EkfState;
+import geometry_msgs.Quaternion;
 import geometry_msgs.QuaternionStamped;
 import geometry_msgs.Vector3;
 import geometry_msgs.Vector3Stamped;
 import sensor_msgs.CompressedImage;
 import std_msgs.Float64;
+import std_msgs.Header;
 import std_msgs.Int32;
 
 
@@ -535,25 +538,42 @@ public class AstroseeNode extends AbstractNodeMain {
             // Relative position
             Vector3Stamped cv_rel_position = cvRelPositionPub.newMessage();
             Vector3 vector_1 = factory.newFromType(Vector3._TYPE);
+            // TODO: add correct values here
             vector_1.setX(0.4);
             vector_1.setY(0.5);
             vector_1.setZ(0.6);
             cv_rel_position.setVector(vector_1);
-            //TODO: make header, same for all 3 topics cv_rel_position.setHeader();
-            cvRelPositionPub.publish(cv_rel_position); // publish it
-            Log.i("Astrosee relative position", "[" + String.format("%.4f", cv_rel_position.getVector().getX()) + ", " + String.format("%.4f", cv_rel_position.getVector().getY()) + ", " + String.format("%.4f", cv_rel_position.getVector().getZ()) + "]");
+            // Create Header
+            std_msgs.Header hdr = factory.newFromType(Header._TYPE);
+            hdr.setStamp(Time.fromMillis(System.currentTimeMillis()));
+            cv_rel_position.setHeader(hdr);
+            // Publish to the topic
+            cvRelPositionPub.publish(cv_rel_position);
+            Log.i("AstroSee relative position", "[" + String.format("%.4f", cv_rel_position.getVector().getX()) + ", " + String.format("%.4f", cv_rel_position.getVector().getY()) + ", " + String.format("%.4f", cv_rel_position.getVector().getZ()) + "]");
 
             // Relative orientation
-            // QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
-            // cv_rel_quaternion.setQuaternion(0.4, 5.5, 9.9, 4.4);
-            // cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
-            // Log.i("Astrosee relative position", "[" + String.format("%.4f", cv_rel_quaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getW()) + "]");
+            QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
+            Quaternion quaternion_1 = factory.newFromType(Quaternion._TYPE);
+            //TODO: Add correct values here
+            quaternion_1.setX(0.4);
+            quaternion_1.setY(0.5);
+            quaternion_1.setZ(0.6);
+            quaternion_1.setW(0.7);
+            cv_rel_quaternion.setQuaternion(quaternion_1);
+            cv_rel_quaternion.setHeader(hdr);
+            cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
+            Log.i("AstroSee relative quaternion", "[" + String.format("%.4f", cv_rel_quaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getW()) + "]");
 
             // bounding box centre
-            // Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
-            // bb_centre.setVector(box.centerX(), box.centerY(), 0);
-            //  cvBBcentrePub.publish(bb_centre); // publish it
-            //  Log.i("Astrosee relative position", "[" + String.format("%.1f", bb_centre.getVector().getX()) + ", " + String.format("%.1f", bb_centre.getVector().getY()) + ", " + String.format("%.1f", bb_centre.getVector().getZ()) + "]");
+            Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
+            Vector3 vector_2 = factory.newFromType(Vector3._TYPE);
+            vector_2.setX(box.centerX());
+            vector_2.setY(box.centerY());
+            vector_2.setZ(0.0);
+            bb_centre.setVector(vector_2);
+            bb_centre.setHeader(hdr);
+            cvBBcentrePub.publish(bb_centre); // publish it
+            Log.i("AstroSee BB Centre", "[" + String.format("%.1f", bb_centre.getVector().getX()) + ", " + String.format("%.1f", bb_centre.getVector().getY()) + ", " + String.format("%.1f", bb_centre.getVector().getZ()) + "]");
 
 
         }
