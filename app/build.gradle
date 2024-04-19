@@ -59,4 +59,6 @@ dependencies {
     // Extra import to get ROS parameter message types
     implementation 'org.ros.rosjava_messages:geometry_msgs:1.12.7'
 
+    implementation 'com.quickbirdstudios:opencv-contrib:4.5.3.0'
+
 }

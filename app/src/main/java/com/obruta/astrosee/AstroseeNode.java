@@ -12,6 +12,7 @@ import android.util.Log;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.opencv.calib3d.Calib3d;
 import org.ros.message.MessageFactory;
 import org.ros.message.MessageListener;
 import org.ros.message.Time;
@@ -46,6 +47,8 @@ import sensor_msgs.CompressedImage;
 import std_msgs.Float64;
 import std_msgs.Header;
 import std_msgs.Int32;
+
+
 
 
 public class AstroseeNode extends AbstractNodeMain {
@@ -532,6 +535,10 @@ public class AstroseeNode extends AbstractNodeMain {
             std_msgs.String cv_results_string = cvResultsPub.newMessage();
             cv_results_string.setData(CV_Results);
             cvResultsPub.publish(cv_results_string); // publish it
+
+            ///// POSE ESTIMATION HERE
+            rvec, tvec = Calib3d.solvePnP(objectPoints, imagePoints, cameraMatrix, distCoefficients);
+            ///////////////////////////
 
 
             // Pose detection results
