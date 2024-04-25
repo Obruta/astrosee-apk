@@ -13,6 +13,13 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.opencv.calib3d.Calib3d;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfDouble;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.MatOfPoint3f;
+import org.opencv.core.Point;
+import org.opencv.core.Point3;
 import org.ros.message.MessageFactory;
 import org.ros.message.MessageListener;
 import org.ros.message.Time;
@@ -34,6 +41,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 
@@ -92,6 +100,7 @@ public class AstroseeNode extends AbstractNodeMain {
     private final Paint paint;
 
     private ObjectDetector objectDetector;
+    private ObjectDetector poseDetector;
     private ImageProcessor imageProcessor;
     private boolean saveImages;
     private boolean processImages;
@@ -107,6 +116,19 @@ public class AstroseeNode extends AbstractNodeMain {
 
     MessageFactory factory;
 
+    // Hard-coding the objectPoints
+    Point3[] pointsArray = new Point3[]{
+            new Point3(-0.148048, -0.125818, 0.099267),
+            new Point3(0.133917, -0.112317, -0.156238),
+            new Point3(-0.120165, 0.106573, -0.114485),
+            new Point3(0.133836, 0.142346, 0.141878),
+            new Point3(-0.137991, -0.152850, -0.155571),
+            new Point3(-0.137991, -0.152850, -0.155571),
+            new Point3(-0.148946, 0.137467, 0.138683),
+            new Point3(-0.140832, -0.147009, 0.142015)};
+
+    // Convert the array to a MatOfPoint3f
+    MatOfPoint3f objectPoints = new MatOfPoint3f(pointsArray);
 
 
     public AstroseeNode(Context applicationContext, String dataPath) {
@@ -253,7 +275,6 @@ public class AstroseeNode extends AbstractNodeMain {
         cvRelPositionPub = connectedNode.newPublisher("/cv/rel_position", Vector3Stamped._TYPE);
         cvRelQuaternionPub = connectedNode.newPublisher("/cv/rel_quaternion", QuaternionStamped._TYPE);
         cvBBcentrePub = connectedNode.newPublisher("/cv/bb_centre", Vector3Stamped._TYPE);
-
 
         Subscriber<std_msgs.String> robotNameSub = connectedNode.newSubscriber("/robot_name",
                 std_msgs.String._TYPE);
@@ -477,6 +498,19 @@ public class AstroseeNode extends AbstractNodeMain {
             e.printStackTrace();
         }
 
+
+        // Build the pose detection neural network!
+        BaseOptions baseOptionsBuilder_pose = BaseOptions.builder().setNumThreads(4).build();
+        ObjectDetector.ObjectDetectorOptions optionsBuilder_pose = ObjectDetector.ObjectDetectorOptions.builder()
+                .setScoreThreshold(0.5f)
+                .setMaxResults(1).setBaseOptions(baseOptionsBuilder).build();
+
+        try {
+            poseDetector = ObjectDetector.createFromFileAndOptions(context, "dockcam_pose.tflite", optionsBuilder_pose);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         imageProcessor = new ImageProcessor.Builder().build();
 
 
@@ -502,13 +536,18 @@ public class AstroseeNode extends AbstractNodeMain {
                 // Bitmap to TensorFlow
                 TensorImage tensorImage = imageProcessor.process(TensorImage.fromBitmap(bitmap));
 
-                // Processing
+                // Processing object
                 List<Detection> results = objectDetector.detect(tensorImage);
                 if(saveImages) {
                     processResults(results, image.getHeader().getSeq(), bitmap);
                 } else {
                     processResults(results, image.getHeader().getSeq());
                 }
+
+                // Processing pose
+                List<Detection> pose_results = poseDetector.detect(tensorImage);
+                processPoseResults(pose_results, image.getHeader().getSeq());
+
             }
         });
 
@@ -614,6 +653,136 @@ public class AstroseeNode extends AbstractNodeMain {
             Log.i(TAG, "Image saved to: " + imageFile.getAbsolutePath());
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public void processPoseResults(List<Detection> detections, int image_seq) {
+
+        int numClasses = 8; // number of points in ObjectPoints
+
+        // Create a List to store image points directly (replace with ArrayList if needed)
+        List<MatOfPoint2f> imagePointsList = new LinkedList<>();
+
+
+        for (Detection detection : detections) {
+            // Object detection results
+            Category category = detection.getCategories().get(0);
+            int classIndex = category.getIndex(); // Assuming category.getIndex() returns the class order
+            // Check if classIndex is within valid range (optional)
+            if (classIndex < 0 || classIndex >= numClasses) {
+                Log.e(TAG,"Pose detection class index out of range! Class: " + classIndex);
+                continue;
+            }
+            RectF box = detection.getBoundingBox();
+            float centreX = box.centerX();
+            float centreY = box.centerY();
+            float score = category.getScore();
+            // Get the list of bounding box centers for the current class
+            // Access the corresponding MatOfPoint3f for the class
+            MatOfPoint2f imagePoints = imagePointsList.get(classIndex);
+            if (imagePoints == null) {
+                // If not created yet, create a new MatOfPoint3f for this class
+                imagePoints = new MatOfPoint2f();
+                imagePointsList.add(classIndex, imagePoints); // Add at specific class index
+            }
+
+            // Add the 2D point to the class-wise image points
+            imagePoints.push_back(new MatOfPoint2f(new Point(centreX, centreY)));
+
+            // Logging
+            Log.i(TAG, String.format("Pose Detection Classes: %s, Score: %s, CentreX: %s, CentreY: %s", classIndex, score, centreX, centreY));
+        }
+
+        // Combine all image points into a single MatOfPoint2f
+        MatOfPoint2f allImagePoints = new MatOfPoint2f();
+        for (MatOfPoint2f points : imagePointsList) {
+            allImagePoints.push_back(points);
+        }
+
+        // Call solvePnP
+
+        // Camera properties
+        // Define camera matrix values
+        double fx = 900; // focal length in x-direction
+        double fy = 900; // focal length in y-direction
+        double cx = 525; // optical center x-coordinate
+        double cy = 600; // optical center y-coordinate
+
+        // Define distortion coefficients (assuming a simple model with just k1 and k2)
+        double k1 = 0.0; // radial distortion coefficient 1
+        double k2 = 0.00; // radial distortion coefficient 2
+
+        // Create cameraMatrix
+        Mat cameraMatrix = new Mat(3, 3, CvType.CV_64F);
+        cameraMatrix.put(0, 0, fx);
+        cameraMatrix.put(1, 1, fy);
+        cameraMatrix.put(0, 2, cx);
+        cameraMatrix.put(1, 2, cy);
+        cameraMatrix.put(2, 2, 1.0);
+
+        // Create distCoefficients
+        Mat distCoefficients = new Mat(1, 2, CvType.CV_64F); // Assuming only k1 and k2 are used
+        distCoefficients.put(0, 0, k1);
+        distCoefficients.put(0, 1, k2);
+
+
+        Mat rvec = new Mat();
+        Mat tvec = new Mat();
+        Calib3d.solvePnP(new MatOfPoint3f(objectPoints.toArray()), allImagePoints, cameraMatrix, (MatOfDouble) distCoefficients, rvec, tvec);
+
+        // Now rvec and tvec contain the rotation and translation vectors, respectively
+
+         /// NOTE RVEC IS ROTATION IN RODRUIGEZ AND TVEC IS TRANSLATION
+
+
+        // Pose detection results
+        // Relative position
+        Vector3Stamped cv_rel_position = cvRelPositionPub.newMessage();
+        Vector3 vector_1 = factory.newFromType(Vector3._TYPE);
+        // TODO: add correct values here
+        vector_1.setX(rvec.get(0,0)[0]);
+        vector_1.setY(rvec.get(1,0)[0]);
+        vector_1.setZ(rvec.get(2,0)[0]);
+        cv_rel_position.setVector(vector_1);
+        // Create Header
+        std_msgs.Header hdr = factory.newFromType(Header._TYPE);
+        hdr.setStamp(Time.fromMillis(System.currentTimeMillis()));
+        cv_rel_position.setHeader(hdr);
+        // Publish to the topic
+        cvRelPositionPub.publish(cv_rel_position);
+        Log.i("AstroSee relative position", "[" + String.format("%.4f", cv_rel_position.getVector().getX()) + ", " + String.format("%.4f", cv_rel_position.getVector().getY()) + ", " + String.format("%.4f", cv_rel_position.getVector().getZ()) + "]");
+
+        // Relative orientation
+        QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
+        Quaternion quaternion_1 = factory.newFromType(Quaternion._TYPE);
+        //TODO: Add correct values here
+        quaternion_1.setX(0.4);
+        quaternion_1.setY(0.5);
+        quaternion_1.setZ(0.6);
+        quaternion_1.setW(0.7);
+        cv_rel_quaternion.setQuaternion(quaternion_1);
+        cv_rel_quaternion.setHeader(hdr);
+        cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
+        Log.i("AstroSee relative quaternion", "[" + String.format("%.4f", cv_rel_quaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getW()) + "]");
+
+        // bounding box centre
+        Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
+        Vector3 vector_2 = factory.newFromType(Vector3._TYPE);
+        vector_2.setX(box.centerX());
+        vector_2.setY(box.centerY());
+        vector_2.setZ(0.0);
+        bb_centre.setVector(vector_2);
+        bb_centre.setHeader(hdr);
+        cvBBcentrePub.publish(bb_centre); // publish it
+        Log.i("AstroSee BB Centre", "[" + String.format("%.1f", bb_centre.getVector().getX()) + ", " + String.format("%.1f", bb_centre.getVector().getY()) + ", " + String.format("%.1f", bb_centre.getVector().getZ()) + "]");
+
+    }
+
+
+
+
+
+
         }
     }
 }
