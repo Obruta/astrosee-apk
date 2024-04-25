@@ -47,7 +47,6 @@ import java.util.Locale;
 
 import ff_hw_msgs.PmcCommand;
 import ff_msgs.EkfState;
-import geometry_msgs.Quaternion;
 import geometry_msgs.QuaternionStamped;
 import geometry_msgs.Vector3;
 import geometry_msgs.Vector3Stamped;
@@ -108,9 +107,10 @@ public class AstroseeNode extends AbstractNodeMain {
     // CV Topics
     Publisher<std_msgs.String> cvResultsPub;
     private String CV_Results;
+    private String CV_pose_Results;
 
     Publisher<Vector3Stamped> cvRelPositionPub;
-    Publisher<QuaternionStamped> cvRelQuaternionPub;
+    Publisher<Vector3Stamped> cvRelRodriugesPub;
     Publisher<Vector3Stamped> cvBBcentrePub;
     //private Vector3Stamped cvRelPosition;
 
@@ -135,6 +135,7 @@ public class AstroseeNode extends AbstractNodeMain {
         // /sdcard/data/com.obruta.astrosee
 
         CV_Results = ""; // define to be empty
+        CV_pose_Results = ""; // define to be empty
 
         this.dataPath = dataPath;
         this.dockCamDataPath = dataPath + "/delayed/dock_images";
@@ -224,6 +225,7 @@ public class AstroseeNode extends AbstractNodeMain {
                 .put("Servicer Pos Wrt Client", "[" + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getZ()) + "]")
                 .put("Servicer's Recv'd Abs Client Position", "[" + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getZ()) + "]")
                 .put("Object Detection Results: ", CV_Results)
+                .put("Pose Detection Results: ", CV_pose_Results)
                 ;
 
 
@@ -273,7 +275,7 @@ public class AstroseeNode extends AbstractNodeMain {
         // CV Topics
         cvResultsPub = connectedNode.newPublisher("/cv_results", std_msgs.String._TYPE);
         cvRelPositionPub = connectedNode.newPublisher("/cv/rel_position", Vector3Stamped._TYPE);
-        cvRelQuaternionPub = connectedNode.newPublisher("/cv/rel_quaternion", QuaternionStamped._TYPE);
+        cvRelRodriugesPub = connectedNode.newPublisher("/cv/rel_mrp", Vector3Stamped._TYPE);
         cvBBcentrePub = connectedNode.newPublisher("/cv/bb_centre", Vector3Stamped._TYPE);
 
         Subscriber<std_msgs.String> robotNameSub = connectedNode.newSubscriber("/robot_name",
@@ -575,40 +577,9 @@ public class AstroseeNode extends AbstractNodeMain {
             cv_results_string.setData(CV_Results);
             cvResultsPub.publish(cv_results_string); // publish it
 
-            ///// POSE ESTIMATION HERE
-            rvec, tvec = Calib3d.solvePnP(objectPoints, imagePoints, cameraMatrix, distCoefficients);
-            ///////////////////////////
-
-
-            // Pose detection results
-            // Relative position
-            Vector3Stamped cv_rel_position = cvRelPositionPub.newMessage();
-            Vector3 vector_1 = factory.newFromType(Vector3._TYPE);
-            // TODO: add correct values here
-            vector_1.setX(0.4);
-            vector_1.setY(0.5);
-            vector_1.setZ(0.6);
-            cv_rel_position.setVector(vector_1);
             // Create Header
             std_msgs.Header hdr = factory.newFromType(Header._TYPE);
             hdr.setStamp(Time.fromMillis(System.currentTimeMillis()));
-            cv_rel_position.setHeader(hdr);
-            // Publish to the topic
-            cvRelPositionPub.publish(cv_rel_position);
-            Log.i("AstroSee relative position", "[" + String.format("%.4f", cv_rel_position.getVector().getX()) + ", " + String.format("%.4f", cv_rel_position.getVector().getY()) + ", " + String.format("%.4f", cv_rel_position.getVector().getZ()) + "]");
-
-            // Relative orientation
-            QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
-            Quaternion quaternion_1 = factory.newFromType(Quaternion._TYPE);
-            //TODO: Add correct values here
-            quaternion_1.setX(0.4);
-            quaternion_1.setY(0.5);
-            quaternion_1.setZ(0.6);
-            quaternion_1.setW(0.7);
-            cv_rel_quaternion.setQuaternion(quaternion_1);
-            cv_rel_quaternion.setHeader(hdr);
-            cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
-            Log.i("AstroSee relative quaternion", "[" + String.format("%.4f", cv_rel_quaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getW()) + "]");
 
             // bounding box centre
             Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
@@ -725,24 +696,19 @@ public class AstroseeNode extends AbstractNodeMain {
         distCoefficients.put(0, 0, k1);
         distCoefficients.put(0, 1, k2);
 
-
         Mat rvec = new Mat();
         Mat tvec = new Mat();
         Calib3d.solvePnP(new MatOfPoint3f(objectPoints.toArray()), allImagePoints, cameraMatrix, (MatOfDouble) distCoefficients, rvec, tvec);
 
+
         // Now rvec and tvec contain the rotation and translation vectors, respectively
-
-         /// NOTE RVEC IS ROTATION IN RODRUIGEZ AND TVEC IS TRANSLATION
-
-
         // Pose detection results
         // Relative position
         Vector3Stamped cv_rel_position = cvRelPositionPub.newMessage();
         Vector3 vector_1 = factory.newFromType(Vector3._TYPE);
-        // TODO: add correct values here
-        vector_1.setX(rvec.get(0,0)[0]);
-        vector_1.setY(rvec.get(1,0)[0]);
-        vector_1.setZ(rvec.get(2,0)[0]);
+        vector_1.setX(tvec.get(0,0)[0]);
+        vector_1.setY(tvec.get(1,0)[0]);
+        vector_1.setZ(tvec.get(2,0)[0]);
         cv_rel_position.setVector(vector_1);
         // Create Header
         std_msgs.Header hdr = factory.newFromType(Header._TYPE);
@@ -753,36 +719,22 @@ public class AstroseeNode extends AbstractNodeMain {
         Log.i("AstroSee relative position", "[" + String.format("%.4f", cv_rel_position.getVector().getX()) + ", " + String.format("%.4f", cv_rel_position.getVector().getY()) + ", " + String.format("%.4f", cv_rel_position.getVector().getZ()) + "]");
 
         // Relative orientation
-        QuaternionStamped cv_rel_quaternion = cvRelQuaternionPub.newMessage();
-        Quaternion quaternion_1 = factory.newFromType(Quaternion._TYPE);
-        //TODO: Add correct values here
-        quaternion_1.setX(0.4);
-        quaternion_1.setY(0.5);
-        quaternion_1.setZ(0.6);
-        quaternion_1.setW(0.7);
-        cv_rel_quaternion.setQuaternion(quaternion_1);
-        cv_rel_quaternion.setHeader(hdr);
-        cvRelQuaternionPub.publish(cv_rel_quaternion); // publish it
-        Log.i("AstroSee relative quaternion", "[" + String.format("%.4f", cv_rel_quaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cv_rel_quaternion.getQuaternion().getW()) + "]");
+        Vector3Stamped cv_rel_rodriuges = cvRelRodriugesPub.newMessage();
+        Vector3 rodriuges_1 = factory.newFromType(Vector3._TYPE);
+        rodriuges_1.setX(rvec.get(0,0)[0]);
+        rodriuges_1.setY(rvec.get(1,0)[0]);
+        rodriuges_1.setZ(rvec.get(2,0)[0]);
+        cv_rel_rodriuges.setVector(rodriuges_1);
+        cv_rel_rodriuges.setHeader(hdr);
+        cvRelRodriugesPub.publish(cv_rel_rodriuges); // publish it
+        Log.i("AstroSee relative rodriuges rotation", "[" + String.format("%.4f", cv_rel_rodriuges.getVector().getX()) + ", " + String.format("%.4f", cv_rel_rodriuges.getVector().getY()) + ", " + String.format("%.4f", cv_rel_rodriuges.getVector().getZ()) + "]");
 
-        // bounding box centre
-        Vector3Stamped bb_centre = cvBBcentrePub.newMessage();
-        Vector3 vector_2 = factory.newFromType(Vector3._TYPE);
-        vector_2.setX(box.centerX());
-        vector_2.setY(box.centerY());
-        vector_2.setZ(0.0);
-        bb_centre.setVector(vector_2);
-        bb_centre.setHeader(hdr);
-        cvBBcentrePub.publish(bb_centre); // publish it
-        Log.i("AstroSee BB Centre", "[" + String.format("%.1f", bb_centre.getVector().getX()) + ", " + String.format("%.1f", bb_centre.getVector().getY()) + ", " + String.format("%.1f", bb_centre.getVector().getZ()) + "]");
+        CV_pose_Results = String.format("Pose detection results. Relative position: [%s, %s, %s]; Relative attitude: [%s, %s, %s]",
+                rvec.get(0,0)[0], rvec.get(1,0)[0], rvec.get(2,0)[0], rvec.get(0,0)[0], rvec.get(1,0)[0], rvec.get(2,0)[0]);
+        Log.i(TAG, CV_pose_Results);
 
-    }
+        //TODO: Log each individual keypoint (as a string???)
 
 
-
-
-
-
-        }
     }
 }
