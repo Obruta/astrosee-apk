@@ -638,10 +638,9 @@ public class AstroseeNode extends AbstractNodeMain {
         for (Detection detection : detections) {
             // Object detection results
 
-            FIGURE OUT WHAT detections IS and how to access each class!
+            //FIGURE OUT WHAT detections IS and how to access each class!
 
-            detection.getCategories().get
-            Category category = detection.getCategories().;
+            Category category = detection.getCategories().get(0);
             int classIndex = category.getIndex(); // Assuming category.getIndex() returns the class order
             // Check if classIndex is within valid range (optional)
             if (classIndex < 0 || classIndex >= numClasses) {
