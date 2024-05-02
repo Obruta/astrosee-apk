@@ -637,7 +637,11 @@ public class AstroseeNode extends AbstractNodeMain {
 
         for (Detection detection : detections) {
             // Object detection results
-            Category category = detection.getCategories().get(0);
+
+            FIGURE OUT WHAT detections IS and how to access each class!
+
+            detection.getCategories().get
+            Category category = detection.getCategories().;
             int classIndex = category.getIndex(); // Assuming category.getIndex() returns the class order
             // Check if classIndex is within valid range (optional)
             if (classIndex < 0 || classIndex >= numClasses) {
@@ -681,7 +685,9 @@ public class AstroseeNode extends AbstractNodeMain {
 
         // Define distortion coefficients (assuming a simple model with just k1 and k2)
         double k1 = 0.0; // radial distortion coefficient 1
-        double k2 = 0.00; // radial distortion coefficient 2
+        double k2 = 0.0; // radial distortion coefficient 2
+        double p1 = 0.0; // radial distortion coefficient 2
+        double p2 = 0.0; // radial distortion coefficient 2
 
         // Create cameraMatrix
         Mat cameraMatrix = new Mat(3, 3, CvType.CV_64F);
@@ -692,14 +698,69 @@ public class AstroseeNode extends AbstractNodeMain {
         cameraMatrix.put(2, 2, 1.0);
 
         // Create distCoefficients
-        Mat distCoefficients = new Mat(1, 2, CvType.CV_64F); // Assuming only k1 and k2 are used
-        distCoefficients.put(0, 0, k1);
-        distCoefficients.put(0, 1, k2);
+        /*
+        Mat distCoefficientsMAT = new Mat(1, 3, CvType.CV_64F);
+        distCoefficientsMAT.put(0, 0, k1);
+        distCoefficientsMAT.put(0, 1, k2);
+        distCoefficientsMAT.put(0, 2, p1);
+        distCoefficientsMAT.put(0, 3, p2);
+        MatOfDouble distCoefficients = new MatOfDouble(distCoefficientsMAT); // Using k1, k2, p1, and p2; others are ignored.
+        */
+        double[] myCoefficients = new double[] {k1, k2, p1, k2};
+        MatOfDouble distCoefficients = new MatOfDouble(myCoefficients); // Using k1, k2, p1, and p2; others are ignored.
 
         Mat rvec = new Mat();
         Mat tvec = new Mat();
-        Calib3d.solvePnP(new MatOfPoint3f(objectPoints.toArray()), allImagePoints, cameraMatrix, (MatOfDouble) distCoefficients, rvec, tvec);
 
+        // FOR TESTING ONLY: ARTIFICALLY DETECTING POINTS TO SEE HOW THE THE EPNP RUNS IF THE NEURAL NETWORK DETECTED THESE POINTS
+        /*
+        MatOfPoint2f imagePoints2 = new MatOfPoint2f();
+        List<MatOfPoint2f> imagePointsList2 = new LinkedList<>();
+        imagePointsList2.add(0, imagePoints2); // Add at specific class index
+        imagePoints2.push_back(new MatOfPoint2f(new Point(120, 120)));
+        imagePointsList2.add(1, imagePoints2); // Add at specific class index
+        imagePoints2.push_back(new MatOfPoint2f(new Point(100, 180)));
+        imagePointsList2.add(2, imagePoints2); // Add at specific class index
+        imagePoints2.push_back(new MatOfPoint2f(new Point(20, 300)));
+        imagePointsList2.add(3, imagePoints2); // Add at specific class index
+        imagePoints2.push_back(new MatOfPoint2f(new Point(300, 10)));
+        imagePointsList2.add(4, imagePoints2); // Add at specific class index
+        imagePoints2.push_back(new MatOfPoint2f(new Point(200, 200)));
+        imagePointsList2.add(5, imagePoints2); // Add at specific class index
+        imagePoints2.push_back(new MatOfPoint2f(new Point(20, 20)));
+        imagePointsList2.add(6, imagePoints2); // Add at specific class index
+        imagePoints2.push_back(new MatOfPoint2f(new Point(199, 199)));
+        imagePointsList2.add(7, imagePoints2); // Add at specific class index
+        imagePoints2.push_back(new MatOfPoint2f(new Point(76, 75)));
+
+        // Combine all image points into a single MatOfPoint2f
+        MatOfPoint2f allImagePoints2 = new MatOfPoint2f();
+            for (MatOfPoint2f points : imagePointsList2) {
+            allImagePoints2.push_back(points);
+        }
+        */
+
+        // Hard-coding the imagePoints
+        Point[] pointsArray = new Point[]{
+                new Point(120, 120),
+                new Point(100, 130),
+                new Point(20, 120),
+                new Point(120, 250),
+                new Point(199, 120),
+                new Point(0, 0),
+                new Point(20, 10),
+                new Point(200, 0)};
+
+        // Convert the array to a MatOfPoint3f
+        MatOfPoint2f imagePoints = new MatOfPoint2f(pointsArray);
+
+        if (imagePoints.rows() < 8) {
+            Log.i(TAG, String.format("Skipping EPNP due to too few imagePoints. Num points: %d and Object Points: %d", imagePoints.rows(), objectPoints.rows()));
+            return;
+        }
+
+        Log.i(TAG,String.format("Running EPNP with NumImagePoints: %d and ObjectPoints: %d", imagePoints.rows(), objectPoints.rows()));
+        Calib3d.solvePnP(objectPoints, imagePoints, cameraMatrix, distCoefficients, rvec, tvec, false, Calib3d.SOLVEPNP_EPNP); // default is SOLVEPNP_ITERATIVE (requires 3 image points) unless otherwise specified
 
         // Now rvec and tvec contain the rotation and translation vectors, respectively
         // Pose detection results
@@ -730,7 +791,7 @@ public class AstroseeNode extends AbstractNodeMain {
         Log.i("AstroSee relative rodriuges rotation", "[" + String.format("%.4f", cv_rel_rodriuges.getVector().getX()) + ", " + String.format("%.4f", cv_rel_rodriuges.getVector().getY()) + ", " + String.format("%.4f", cv_rel_rodriuges.getVector().getZ()) + "]");
 
         CV_pose_Results = String.format("Pose detection results. Relative position: [%s, %s, %s]; Relative attitude: [%s, %s, %s]",
-                rvec.get(0,0)[0], rvec.get(1,0)[0], rvec.get(2,0)[0], rvec.get(0,0)[0], rvec.get(1,0)[0], rvec.get(2,0)[0]);
+                tvec.get(0,0)[0], tvec.get(1,0)[0], tvec.get(2,0)[0], rvec.get(0,0)[0], rvec.get(1,0)[0], rvec.get(2,0)[0]);
         Log.i(TAG, CV_pose_Results);
 
         //TODO: Log each individual keypoint (as a string???)
