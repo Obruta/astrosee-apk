@@ -7,7 +7,7 @@ import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.opencv.android.OpenCVLoader;
+// import org.opencv.android.OpenCVLoader;
 
 import gov.nasa.arc.astrobee.android.gs.MessageType;
 import gov.nasa.arc.astrobee.android.gs.StartGuestScienceService;
@@ -49,11 +49,14 @@ public class StartAstroseeService extends StartGuestScienceService {
         // Get a unique instance of the Astrobee API in order to command the robot.
         //api = ApiCommandImplementation.getInstance();
 
+        /*
         // init OpenCV
         if (!OpenCVLoader.initDebug())
             Log.e("OpenCv", "Unable to load OpenCV");
         else
             Log.d("OpenCv", "OpenCV loaded");
+
+         */
 
         // Start the interface
         Intent intent = new Intent(this, MainActivity.class);

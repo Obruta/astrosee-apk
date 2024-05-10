@@ -12,14 +12,8 @@ import android.util.Log;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.opencv.calib3d.Calib3d;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfDouble;
-import org.opencv.core.MatOfPoint2f;
-import org.opencv.core.MatOfPoint3f;
-import org.opencv.core.Point;
-import org.opencv.core.Point3;
+//import org.opencv.core.MatOfPoint3f;
+//import org.opencv.core.Point3;
 import org.ros.message.MessageFactory;
 import org.ros.message.MessageListener;
 import org.ros.message.Time;
@@ -41,7 +35,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 
@@ -109,13 +102,14 @@ public class AstroseeNode extends AbstractNodeMain {
     private String CV_Results;
     private String CV_pose_Results;
 
-    Publisher<Vector3Stamped> cvRelPositionPub;
-    Publisher<Vector3Stamped> cvRelRodriugesPub;
+    //Publisher<Vector3Stamped> cvRelPositionPub;
+    //Publisher<Vector3Stamped> cvRelRodriugesPub;
     Publisher<Vector3Stamped> cvBBcentrePub;
     //private Vector3Stamped cvRelPosition;
 
     MessageFactory factory;
 
+    /*
     // Hard-coding the objectPoints
     Point3[] pointsArray = new Point3[]{
             new Point3(-0.148048, -0.125818, 0.099267),
@@ -129,7 +123,7 @@ public class AstroseeNode extends AbstractNodeMain {
 
     // Convert the array to a MatOfPoint3f
     MatOfPoint3f objectPoints = new MatOfPoint3f(pointsArray);
-
+*/
 
     public AstroseeNode(Context applicationContext, String dataPath) {
         // /sdcard/data/com.obruta.astrosee
@@ -225,7 +219,6 @@ public class AstroseeNode extends AbstractNodeMain {
                 .put("Servicer Pos Wrt Client", "[" + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getZ()) + "]")
                 .put("Servicer's Recv'd Abs Client Position", "[" + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getZ()) + "]")
                 .put("Object Detection Results: ", CV_Results)
-                .put("Pose Detection Results: ", CV_pose_Results)
                 ;
 
 
@@ -274,8 +267,8 @@ public class AstroseeNode extends AbstractNodeMain {
 
         // CV Topics
         cvResultsPub = connectedNode.newPublisher("/cv_results", std_msgs.String._TYPE);
-        cvRelPositionPub = connectedNode.newPublisher("/cv/rel_position", Vector3Stamped._TYPE);
-        cvRelRodriugesPub = connectedNode.newPublisher("/cv/rel_mrp", Vector3Stamped._TYPE);
+        //cvRelPositionPub = connectedNode.newPublisher("/cv/rel_position", Vector3Stamped._TYPE);
+        //cvRelRodriugesPub = connectedNode.newPublisher("/cv/rel_mrp", Vector3Stamped._TYPE);
         cvBBcentrePub = connectedNode.newPublisher("/cv/bb_centre", Vector3Stamped._TYPE);
 
         Subscriber<std_msgs.String> robotNameSub = connectedNode.newSubscriber("/robot_name",
@@ -495,24 +488,24 @@ public class AstroseeNode extends AbstractNodeMain {
                 .setMaxResults(1).setBaseOptions(baseOptionsBuilder).build();
 
         try {
-            objectDetector = ObjectDetector.createFromFileAndOptions(context, "dockCamObjectDetector.tflite", optionsBuilder);
+            objectDetector = ObjectDetector.createFromFileAndOptions(context, "efficiendet_dockcam_1_5_detection.tflite", optionsBuilder);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-
+/*
         // Build the pose detection neural network!
         BaseOptions baseOptionsBuilder_pose = BaseOptions.builder().setNumThreads(4).build();
         ObjectDetector.ObjectDetectorOptions optionsBuilder_pose = ObjectDetector.ObjectDetectorOptions.builder()
                 .setScoreThreshold(0.5f)
-                .setMaxResults(1).setBaseOptions(baseOptionsBuilder).build();
+                .setMaxResults(8).setBaseOptions(baseOptionsBuilder).build();
 
         try {
             poseDetector = ObjectDetector.createFromFileAndOptions(context, "dockcam_pose.tflite", optionsBuilder_pose);
         } catch (IOException e) {
             e.printStackTrace();
         }
-
+*/
         imageProcessor = new ImageProcessor.Builder().build();
 
 
@@ -547,8 +540,8 @@ public class AstroseeNode extends AbstractNodeMain {
                 }
 
                 // Processing pose
-                List<Detection> pose_results = poseDetector.detect(tensorImage);
-                processPoseResults(pose_results, image.getHeader().getSeq());
+                //List<Detection> pose_results = poseDetector.detect(tensorImage);
+                //processPoseResults(pose_results, image.getHeader().getSeq());
 
             }
         });
@@ -626,7 +619,7 @@ public class AstroseeNode extends AbstractNodeMain {
             e.printStackTrace();
         }
     }
-
+/*
     public void processPoseResults(List<Detection> detections, int image_seq) {
 
         int numClasses = 8; // number of points in ObjectPoints
@@ -641,6 +634,7 @@ public class AstroseeNode extends AbstractNodeMain {
             //FIGURE OUT WHAT detections IS and how to access each class!
 
             Category category = detection.getCategories().get(0);
+
             int classIndex = category.getIndex(); // Assuming category.getIndex() returns the class order
             // Check if classIndex is within valid range (optional)
             if (classIndex < 0 || classIndex >= numClasses) {
@@ -673,7 +667,19 @@ public class AstroseeNode extends AbstractNodeMain {
             allImagePoints.push_back(points);
         }
 
-        // Call solvePnP
+        // Hard-coding the imagePoints for now
+        Point[] pointsArray = new Point[]{
+                new Point(120, 120),
+                new Point(100, 130),
+                new Point(20, 120),
+                new Point(120, 250),
+                new Point(199, 120),
+                new Point(0, 0),
+                new Point(20, 10),
+                new Point(200, 0)};
+
+        // Convert the array to a MatOfPoint3f
+        MatOfPoint2f imagePoints = new MatOfPoint2f(pointsArray);
 
         // Camera properties
         // Define camera matrix values
@@ -697,61 +703,12 @@ public class AstroseeNode extends AbstractNodeMain {
         cameraMatrix.put(2, 2, 1.0);
 
         // Create distCoefficients
-        /*
-        Mat distCoefficientsMAT = new Mat(1, 3, CvType.CV_64F);
-        distCoefficientsMAT.put(0, 0, k1);
-        distCoefficientsMAT.put(0, 1, k2);
-        distCoefficientsMAT.put(0, 2, p1);
-        distCoefficientsMAT.put(0, 3, p2);
-        MatOfDouble distCoefficients = new MatOfDouble(distCoefficientsMAT); // Using k1, k2, p1, and p2; others are ignored.
-        */
-        double[] myCoefficients = new double[] {k1, k2, p1, k2};
+        double[] myCoefficients = new double[] {k1, k2, p1, p2};
         MatOfDouble distCoefficients = new MatOfDouble(myCoefficients); // Using k1, k2, p1, and p2; others are ignored.
 
         Mat rvec = new Mat();
         Mat tvec = new Mat();
 
-        // FOR TESTING ONLY: ARTIFICALLY DETECTING POINTS TO SEE HOW THE THE EPNP RUNS IF THE NEURAL NETWORK DETECTED THESE POINTS
-        /*
-        MatOfPoint2f imagePoints2 = new MatOfPoint2f();
-        List<MatOfPoint2f> imagePointsList2 = new LinkedList<>();
-        imagePointsList2.add(0, imagePoints2); // Add at specific class index
-        imagePoints2.push_back(new MatOfPoint2f(new Point(120, 120)));
-        imagePointsList2.add(1, imagePoints2); // Add at specific class index
-        imagePoints2.push_back(new MatOfPoint2f(new Point(100, 180)));
-        imagePointsList2.add(2, imagePoints2); // Add at specific class index
-        imagePoints2.push_back(new MatOfPoint2f(new Point(20, 300)));
-        imagePointsList2.add(3, imagePoints2); // Add at specific class index
-        imagePoints2.push_back(new MatOfPoint2f(new Point(300, 10)));
-        imagePointsList2.add(4, imagePoints2); // Add at specific class index
-        imagePoints2.push_back(new MatOfPoint2f(new Point(200, 200)));
-        imagePointsList2.add(5, imagePoints2); // Add at specific class index
-        imagePoints2.push_back(new MatOfPoint2f(new Point(20, 20)));
-        imagePointsList2.add(6, imagePoints2); // Add at specific class index
-        imagePoints2.push_back(new MatOfPoint2f(new Point(199, 199)));
-        imagePointsList2.add(7, imagePoints2); // Add at specific class index
-        imagePoints2.push_back(new MatOfPoint2f(new Point(76, 75)));
-
-        // Combine all image points into a single MatOfPoint2f
-        MatOfPoint2f allImagePoints2 = new MatOfPoint2f();
-            for (MatOfPoint2f points : imagePointsList2) {
-            allImagePoints2.push_back(points);
-        }
-        */
-
-        // Hard-coding the imagePoints
-        Point[] pointsArray = new Point[]{
-                new Point(120, 120),
-                new Point(100, 130),
-                new Point(20, 120),
-                new Point(120, 250),
-                new Point(199, 120),
-                new Point(0, 0),
-                new Point(20, 10),
-                new Point(200, 0)};
-
-        // Convert the array to a MatOfPoint3f
-        MatOfPoint2f imagePoints = new MatOfPoint2f(pointsArray);
 
         if (imagePoints.rows() < 8) {
             Log.i(TAG, String.format("Skipping EPNP due to too few imagePoints. Num points: %d and Object Points: %d", imagePoints.rows(), objectPoints.rows()));
@@ -797,4 +754,5 @@ public class AstroseeNode extends AbstractNodeMain {
 
 
     }
+    */
 }
