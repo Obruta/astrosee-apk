@@ -86,7 +86,11 @@ public class AstroseeNode extends AbstractNodeMain {
     private Vector3Stamped clientGuidancePosition;
     private Vector3Stamped clientGuidanceError;
 
-
+    private Vector3Stamped cvRelPosition;
+    private QuaternionStamped cvRelQuaternion;
+    private Vector3Stamped cvBBcentre;
+    private Vector3Stamped GNCsCvRelPosition;
+    private QuaternionStamped GNCsCvRelQuaternion;
 
     private final Context context;
     private final Paint paint;
@@ -198,7 +202,7 @@ public class AstroseeNode extends AbstractNodeMain {
                 .put("Nozzle Positions Side 1", nozzleSideOne)
                 .put("Nozzle Positions Side 2", nozzleSideTwo)
                 .put("--------------------", "------------------------------------")
-                .put("Client KF Position: ", "[" + String.format("%.4f", clientNavigationPoseEstimate.getVector().getX()) + ", " + String.format("%.4f", clientNavigationPoseEstimate.getVector().getY()) + ", " + String.format("%.4f", clientNavigationPoseEstimate.getVector().getZ()) + "]")
+                //.put("Client KF Position: ", "[" + String.format("%.4f", clientNavigationPoseEstimate.getVector().getX()) + ", " + String.format("%.4f", clientNavigationPoseEstimate.getVector().getY()) + ", " + String.format("%.4f", clientNavigationPoseEstimate.getVector().getZ()) + "]")
                 .put("Client Position Error: ", "[" + String.format("%.4f", clientGuidanceError.getVector().getX()) + ", " + String.format("%.4f", clientGuidanceError.getVector().getY()) + ", " + String.format("%.4f", clientGuidanceError.getVector().getZ()) + "]")
                 .put("Client Quaternion Error: ", "[" + String.format("%.4f", clientQuaternionError.getQuaternion().getX()) + ", " + String.format("%.4f", clientQuaternionError.getQuaternion().getY()) + ", " + String.format("%.4f", clientQuaternionError.getQuaternion().getZ()) + ", " + String.format("%.4f", clientQuaternionError.getQuaternion().getW()) + "]")
                 .put("Client Quaternion Desired", "[" + String.format("%.4f", clientQuaternionDesired.getQuaternion().getX()) + ", " + String.format("%.4f", clientQuaternionDesired.getQuaternion().getY()) + ", " + String.format("%.4f", clientQuaternionDesired.getQuaternion().getZ()) + ", " + String.format("%.4f", clientQuaternionDesired.getQuaternion().getW()) + "]")
@@ -207,18 +211,23 @@ public class AstroseeNode extends AbstractNodeMain {
                 .put("Client Control Torque", "[" + String.format("%.4f", clientAdaptiveControlTorque.getVector().getX()) + ", " + String.format("%.4f", clientAdaptiveControlTorque.getVector().getY()) + ", " + String.format("%.4f", clientAdaptiveControlTorque.getVector().getZ()) + "]")
                 .put("-------------------", "-----------------------------------")
                 .put("Servicer Xm Position Error", "[" + String.format("%.4f", adaptiveGNCctlXmPosError.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCctlXmPosError.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCctlXmPosError.getVector().getZ()) + "]")
-                .put("Servicer Guided Position Error", "[" + String.format("%.4f", adaptiveGNCguidanceError.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCguidanceError.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCguidanceError.getVector().getZ()) + "]")
+                //.put("Servicer Guided Position Error", "[" + String.format("%.4f", adaptiveGNCguidanceError.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCguidanceError.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCguidanceError.getVector().getZ()) + "]")
                 .put("Servicer Xm Position", "[" + String.format("%.4f", adaptiveGNCctlXmPos.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCctlXmPos.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCctlXmPos.getVector().getZ()) + "]")
-                .put("Servicer Guided Position", "[" + String.format("%.4f", adaptiveGNCguidancePos.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCguidancePos.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCguidancePos.getVector().getZ()) + "]")
-                .put("Servicer Xm Velocity", "[" + String.format("%.4f", adaptiveGNCctlXmVel.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCctlXmVel.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCctlXmVel.getVector().getZ()) + "]")
+                //.put("Servicer Guided Position", "[" + String.format("%.4f", adaptiveGNCguidancePos.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCguidancePos.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCguidancePos.getVector().getZ()) + "]")
+                //.put("Servicer Xm Velocity", "[" + String.format("%.4f", adaptiveGNCctlXmVel.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCctlXmVel.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCctlXmVel.getVector().getZ()) + "]")
                 .put("Servicer Xm Velocity Error", "[" + String.format("%.4f", adaptiveGNCctlXmVelError.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCctlXmVelError.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCctlXmVelError.getVector().getZ()) + "]")
                 .put("Servicer Control Acceleration", "[" + String.format("%.4f", adaptiveGNCctlAcceleration.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCctlAcceleration.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCctlAcceleration.getVector().getZ()) + "]")
-                .put("Servicer Quaternion Desired", "[" + String.format("%.4f", quaternionDesired.getQuaternion().getX()) + ", " + String.format("%.4f", quaternionDesired.getQuaternion().getY()) + ", " + String.format("%.4f", quaternionDesired.getQuaternion().getZ()) + ", " + String.format("%.4f", quaternionDesired.getQuaternion().getW()) + "]")
+                //.put("Servicer Quaternion Desired", "[" + String.format("%.4f", quaternionDesired.getQuaternion().getX()) + ", " + String.format("%.4f", quaternionDesired.getQuaternion().getY()) + ", " + String.format("%.4f", quaternionDesired.getQuaternion().getZ()) + ", " + String.format("%.4f", quaternionDesired.getQuaternion().getW()) + "]")
                 .put("Servicer Quaternion Error", "[" + String.format("%.4f", quaternionError.getQuaternion().getX()) + ", " + String.format("%.4f", quaternionError.getQuaternion().getY()) + ", " + String.format("%.4f", quaternionError.getQuaternion().getZ()) + ", " + String.format("%.4f", quaternionError.getQuaternion().getW()) + "]")
-                .put("Servicer Control Torque", "[" + String.format("%.4f", adaptiveControlTorque.getVector().getX()) + ", " + String.format("%.4f", adaptiveControlTorque.getVector().getY()) + ", " + String.format("%.4f", adaptiveControlTorque.getVector().getZ()) + "]")
-                .put("Servicer Pos Wrt Client", "[" + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getZ()) + "]")
-                .put("Servicer's Recv'd Abs Client Position", "[" + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getZ()) + "]")
-                .put("Object Detection Results: ", CV_Results)
+                //.put("Servicer Control Torque", "[" + String.format("%.4f", adaptiveControlTorque.getVector().getX()) + ", " + String.format("%.4f", adaptiveControlTorque.getVector().getY()) + ", " + String.format("%.4f", adaptiveControlTorque.getVector().getZ()) + "]")
+                //.put("Servicer Pos Wrt Client", "[" + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavRelativePosition.getVector().getZ()) + "]")
+                //.put("Servicer's Recv'd Abs Client Position", "[" + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getX()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getY()) + ", " + String.format("%.4f", adaptiveGNCnavClientStates.getVector().getZ()) + "]")
+                .put("CV Rel Pos: ", "[" + String.format("%.4f", cvRelPosition.getVector().getX()) + ", " + String.format("%.4f", cvRelPosition.getVector().getY()) + ", " + String.format("%.4f", cvRelPosition.getVector().getZ()) + "]")
+                .put("GNC Cam Rel Pos: ", "[" + String.format("%.4f", GNCsCvRelPosition.getVector().getX()) + ", " + String.format("%.4f", GNCsCvRelPosition.getVector().getY()) + ", " + String.format("%.4f", GNCsCvRelPosition.getVector().getZ()) + "]")
+                .put("CV Rel Quat: ", "[" + String.format("%.4f", cvRelQuaternion.getQuaternion().getX()) + ", " + String.format("%.4f", cvRelQuaternion.getQuaternion().getY()) + ", " + String.format("%.4f", cvRelQuaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", cvRelQuaternion.getQuaternion().getW()) + "]")
+                .put("GNC Cam Rel Quat: ", "[" + String.format("%.4f", GNCsCvRelQuaternion.getQuaternion().getX()) + ", " + String.format("%.4f", GNCsCvRelQuaternion.getQuaternion().getY()) + ", " + String.format("%.4f", GNCsCvRelQuaternion.getQuaternion().getZ()) + ", " + String.format("%.4f", GNCsCvRelQuaternion.getQuaternion().getW()) + "]")
+                .put("CV BB Centre: ", "[" + String.format("%.4f", cvBBcentre.getVector().getX()) + ", " + String.format("%.4f", cvBBcentre.getVector().getY()) + ", " + String.format("%.4f", cvBBcentre.getVector().getZ()) + "]")
+                //.put("Object Detection Results: ", CV_Results)
                 ;
 
 
@@ -266,6 +275,12 @@ public class AstroseeNode extends AbstractNodeMain {
         clientGuidanceError = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
 
         // CV Topics
+        cvRelPosition = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
+        cvRelQuaternion = factory.newFromType(QuaternionStamped._TYPE); // Add one of these for each topic to send
+        cvBBcentre = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
+        GNCsCvRelPosition = factory.newFromType(Vector3Stamped._TYPE); // Add one of these for each topic to send
+        GNCsCvRelQuaternion = factory.newFromType(QuaternionStamped._TYPE); // Add one of these for each topic to send
+
         cvResultsPub = connectedNode.newPublisher("/cv_results", std_msgs.String._TYPE);
         //cvRelPositionPub = connectedNode.newPublisher("/cv/rel_position", Vector3Stamped._TYPE);
         //cvRelRodriugesPub = connectedNode.newPublisher("/cv/rel_mrp", Vector3Stamped._TYPE);
@@ -478,6 +493,50 @@ public class AstroseeNode extends AbstractNodeMain {
                 clientGuidanceError = vector3Stamped;
             }
         }));
+
+        ////// MRS CV Signals
+        // CV position
+        Subscriber<Vector3Stamped> cvRelPositionSub = connectedNode.newSubscriber("/cv/rel_position", Vector3Stamped._TYPE);
+        cvRelPositionSub.addMessageListener((new MessageListener<Vector3Stamped>() {
+            @Override
+            public void onNewMessage(Vector3Stamped vector3Stamped) {
+                cvRelPosition = vector3Stamped;
+            }
+        }));
+        // CV quaternion
+        Subscriber<QuaternionStamped> cvRelQuaternionSub = connectedNode.newSubscriber("/cv/rel_quaternion", QuaternionStamped._TYPE);
+        cvRelQuaternionSub.addMessageListener((new MessageListener<QuaternionStamped>() {
+            @Override
+            public void onNewMessage(QuaternionStamped quaternionStamped) {
+                cvRelQuaternion = quaternionStamped;
+            }
+        }));
+        // CV BB Centre
+        Subscriber<Vector3Stamped> cvBBcentreSub = connectedNode.newSubscriber("/cv/bb_centre", Vector3Stamped._TYPE);
+        cvBBcentreSub.addMessageListener((new MessageListener<Vector3Stamped>() {
+            @Override
+            public void onNewMessage(Vector3Stamped vector3Stamped) {
+                cvBBcentre = vector3Stamped;
+            }
+        }));
+        // GNC's calculation of the CV output for position
+        Subscriber<Vector3Stamped> GNCsCvRelPositionSub = connectedNode.newSubscriber("/adaptive_gnc/nav/cv/rel_position", Vector3Stamped._TYPE);
+        GNCsCvRelPositionSub.addMessageListener((new MessageListener<Vector3Stamped>() {
+            @Override
+            public void onNewMessage(Vector3Stamped vector3Stamped) {
+                GNCsCvRelPosition = vector3Stamped;
+            }
+        }));
+        // GNC's calculation of the CV output for attitude
+        Subscriber<QuaternionStamped> GNCsCvRelQuaternionSub = connectedNode.newSubscriber("/attitude_nav/cv/rel_quaternion", QuaternionStamped._TYPE);
+        GNCsCvRelQuaternionSub.addMessageListener((new MessageListener<QuaternionStamped>() {
+            @Override
+            public void onNewMessage(QuaternionStamped quaternionStamped) {
+                GNCsCvRelQuaternion = quaternionStamped;
+            }
+        }));
+
+
         // Done logging signals!
 
 
